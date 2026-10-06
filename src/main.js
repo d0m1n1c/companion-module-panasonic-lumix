@@ -10,6 +10,7 @@ class LumixInstance extends InstanceBase {
 		super(internal)
 		this.camera = null
 		this.pollTimer = null
+		this.reconnectTimer = null
 		this.pollInFlight = false
 		this.data = {
 			recordingState: false,
@@ -21,7 +22,7 @@ class LumixInstance extends InstanceBase {
 		this.config = this.normalizeConfig(config)
 		this.updateDefinitions()
 		this.createCameraClient()
-		await this.connectCamera()
+		this.connectCamera()
 	}
 
 	async destroy() {
@@ -35,7 +36,7 @@ class LumixInstance extends InstanceBase {
 		if (this.camera) this.camera.disconnect()
 		this.config = this.normalizeConfig(config)
 		this.createCameraClient()
-		await this.connectCamera()
+		this.connectCamera()
 	}
 
 	normalizeConfig(config) {
@@ -122,13 +123,22 @@ class LumixInstance extends InstanceBase {
 			this.updateStatus(InstanceStatus.Ok)
 			this.log('info', 'Connected to ' + (cameraInfo.modelName || 'Lumix camera'))
 			await this.pollCameraState()
+			if (camera === this.camera) this.startPolling()
 		} catch (error) {
 			if (camera !== this.camera) return
 			this.updateStatus(InstanceStatus.ConnectionFailure, error.message)
 			this.log('error', 'Unable to connect to camera: ' + error.message)
-		} finally {
-			if (camera === this.camera) this.startPolling()
+			this.scheduleReconnect()
 		}
+	}
+
+	scheduleReconnect() {
+		if (this.reconnectTimer || !this.config.host || this.config.interval <= 0) return
+		const retryDelay = Math.max(5000, this.config.interval)
+		this.reconnectTimer = setTimeout(() => {
+			this.reconnectTimer = null
+			this.connectCamera()
+		}, retryDelay)
 	}
 
 	startPolling() {
@@ -140,7 +150,9 @@ class LumixInstance extends InstanceBase {
 
 	stopPolling() {
 		if (this.pollTimer) clearInterval(this.pollTimer)
+		if (this.reconnectTimer) clearTimeout(this.reconnectTimer)
 		this.pollTimer = null
+		this.reconnectTimer = null
 	}
 
 	async pollCameraState() {
