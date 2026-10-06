@@ -64,12 +64,14 @@ class LumixCameraClient {
 				return
 			}
 
+			const requestHeaders = Object.assign({ Connection: 'close' }, headers || {})
 			const request = http.get(
 				{
 					host: self.host,
 					port: port,
 					path: path,
-					headers: headers || {},
+					headers: requestHeaders,
+					agent: false,
 					timeout: timeout || self.timeout,
 				},
 				function (response) {

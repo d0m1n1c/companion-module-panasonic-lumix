@@ -120,6 +120,7 @@ class LumixInstance extends InstanceBase {
 			const cameraInfo = await camera.connect()
 			if (camera !== this.camera) return
 			this.data.cameraInfo = cameraInfo
+			this.consecutivePollErrors = 0
 			this.setVariableValues({ camera_model: cameraInfo.modelName || '' })
 			this.updateStatus(InstanceStatus.Ok)
 			this.log('info', 'Connected to ' + (cameraInfo.modelName || 'Lumix camera'))
@@ -170,9 +171,18 @@ class LumixInstance extends InstanceBase {
 		} catch (error) {
 			if (camera === this.camera) {
 				this.consecutivePollErrors += 1
-				this.updateStatus(InstanceStatus.Ok, 'Connected; state polling unavailable')
+				if (this.consecutivePollErrors >= 3) {
+					this.updateStatus(InstanceStatus.ConnectionFailure, 'Camera heartbeat lost: ' + error.message)
+					this.stopPolling()
+					camera.disconnect()
+					this.scheduleReconnect()
+				} else {
+					this.updateStatus(InstanceStatus.UnknownWarning, 'Camera heartbeat missed')
+				}
 				if (this.consecutivePollErrors === 1) {
-					this.log('warn', 'Camera state polling unavailable; control commands will continue: ' + error.message)
+					this.log('warn', 'Camera heartbeat missed: ' + error.message)
+				} else if (this.consecutivePollErrors === 3) {
+					this.log('error', 'Camera heartbeat lost; reconnecting: ' + error.message)
 				} else if (this.config.debug) {
 					this.log('debug', 'Camera state poll failed: ' + error.message)
 				}
