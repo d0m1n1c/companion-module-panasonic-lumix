@@ -3,10 +3,13 @@ var actions = require('./actions.js')
 var presets = require('./presets.js')
 var feedbacks = require('./feedbacks.js')
 var variables = require('./variables.js')
+var cameraClient = require('./camera-client.js')
 
 var debug
 
 instance.prototype.INTERVAL = null; //used for polling device
+instance.prototype.camera = null;
+instance.prototype.pollInFlight = false;
 
 // ########################
 // #### Instance setup ####
@@ -31,6 +34,7 @@ instance.prototype.destroy = function () {
 		clearInterval(self.INTERVAL);
 		self.INTERVAL = null;
 	}
+	if (self.camera) self.camera.disconnect()
 
 	debug('destroy', self.id)
 }
@@ -43,16 +47,18 @@ instance.prototype.init = function () {
 	log = self.log
 
 	self.data = {
-		recordingState: false
+		recordingState: false,
+		cameraInfo: null
 	}
 
 	self.config.host = this.config.host || ''
 	self.config.debug = this.config.debug || false
-	self.config.interval = this.config.interval || 5000
+	self.config.interval = this.config.interval === undefined ? 1000 : Number(this.config.interval)
+	self.config.controllerName = this.config.controllerName || 'Bitfocus Companion'
 
 	self.status(self.STATUS_WARNING, 'connecting')
-	self.getCameraInformation()
-	self.setupInterval();
+	self.createCameraClient()
+	self.connectCamera()
 	self.actions() // export actions
 	self.init_presets()
 	self.init_variables()
@@ -66,8 +72,10 @@ instance.prototype.updateConfig = function (config) {
 	let self = this;
 	self.config = config
 	self.status(self.STATUS_UNKNOWN)
-	self.getCameraInformation()
-	self.setupInterval();
+	self.config.interval = self.config.interval === undefined ? 1000 : Number(self.config.interval)
+	self.config.controllerName = self.config.controllerName || 'Bitfocus Companion'
+	self.createCameraClient()
+	self.connectCamera()
 	self.actions() // export actions
 	self.init_presets()
 	self.init_variables()
@@ -114,7 +122,14 @@ instance.prototype.config_fields = function () {
 			id: 'interval',
 			label: 'Update Interval',
 			width: 3,
-			default: 5000
+			default: 1000
+		},
+		{
+			type: 'textinput',
+			id: 'controllerName',
+			label: 'Controller Name',
+			width: 4,
+			default: 'Bitfocus Companion'
 		},
 		{
 			type: 'text',
@@ -150,59 +165,52 @@ instance.prototype.config_fields = function () {
 }
 
 
-instance.prototype.getCameraInformation = function () {
-	//Get all information from Camera
-	let self = this;
+instance.prototype.createCameraClient = function () {
+	let self = this
+	if (self.camera) self.camera.disconnect()
+	self.camera = new cameraClient.LumixCameraClient({
+		host: self.config.host,
+		controllerName: self.config.controllerName,
+		log: function (message) { self.log('debug', message) },
+	})
+}
 
-	if (self.config.host) {
-		self.system.emit(
-			'rest_get',
-			'http://' + self.config.host + ':' + self.config.httpPort + '/cam.cgi?mode=getinfo&type=setting',
-			function (err, result) {
-				// If there was an Error
-				if (err) {
-					let errString = '';
-					self.status(self.STATUS_ERROR);
-					try {
-						if (result && result.error && result.error.code) {
-							if (result.error.code === 'ETIMEDOUT') {
-								errString = 'Unable to reach device. Timed out.';
-							}
-							else if (result.error.code === 'ECONNREFUSED') {
-								errString = 'Connection refused. Is this the right IP address?';
-							}
-							else {
-								errString = result.error.code.toString();
-							}
-							self.log('error', 'Error from Camera: ' + errString);	
-						}
-					}
-					catch(error) {
-						self.log('error', 'Camera gave an error: ' + error);
-					}
+instance.prototype.connectCamera = async function () {
+	let self = this
+	if (!self.config.host) {
+		self.status(self.STATUS_WARNING, 'Camera IP is required')
+		return
+	}
 
-					if (self.INTERVAL) {
-						self.log('info', 'Stopping Update Interval due to error.');
-						clearInterval(self.INTERVAL);
-						self.INTERVAL = null;
-					}
-					
-					return
-				}
+	try {
+		self.status(self.STATUS_WARNING, 'Requesting camera access')
+		self.data.cameraInfo = await self.camera.connect()
+		self.status(self.STATUS_OK)
+		self.log('info', 'Connected to ' + (self.data.cameraInfo.modelName || 'Lumix camera'))
+		await self.getCameraInformation()
+	} catch (error) {
+		self.status(self.STATUS_ERROR, error.message)
+		self.log('error', 'Unable to connect to camera: ' + error.message)
+	} finally {
+		self.setupInterval()
+	}
+}
 
-				// If We get a responce, store the values
+instance.prototype.getCameraInformation = async function () {
+	let self = this
+	if (!self.camera || !self.config.host || self.pollInFlight) return
 
-				self.status(self.STATUS_OK);
-
-				if (('data', result.response.req)) {
-					//parsing of the response isn't actually implemented at this time, so don't do anything with whatever was returned for now
-					//self.storeData(result.data);
-
-					self.checkVariables()
-					self.checkFeedbacks()
-				}
-			}
-		)
+	self.pollInFlight = true
+	try {
+		const stateXml = await self.camera.getState()
+		const recordingState = cameraClient.parseRecordingState(stateXml)
+		if (recordingState !== null) self.setRecordingState(recordingState)
+		self.status(self.STATUS_OK)
+	} catch (error) {
+		self.status(self.STATUS_ERROR, error.message)
+		self.log('error', 'Camera state poll failed: ' + error.message)
+	} finally {
+		self.pollInFlight = false
 	}
 };
 
@@ -233,8 +241,9 @@ instance.prototype.setupInterval = function() {
 		self.INTERVAL = null;
 	}
 
-	if (self.config.interval > 0) {
-		self.INTERVAL = setInterval(self.getCameraInformation.bind(self), self.config.interval);
+	const configuredInterval = Number(self.config.interval)
+	if (configuredInterval > 0) {
+		self.INTERVAL = setInterval(self.getCameraInformation.bind(self), Math.max(1000, configuredInterval));
 	}
 };
 
@@ -268,37 +277,24 @@ instance.prototype.init_feedbacks = function (system) {
 // #### Instance Actions ####
 // ##########################
 instance.prototype.sendCommand = function (str) {
-	if (str !== undefined) {
-		self.system.emit(
-			'rest_get',
-			'http://' + self.config.host + '/cam.cgi?' + str,
-			function (err, result) {
-				if (self.config.debug == true) {
-					self.debug(
-						'http://' + self.config.host + '/cam.cgi?' + str
-					)
-					self.log('warn', 'Send CMD: ' + String(str))
-				}
-				try {
-					if (result && result.error && result.error.code) {
-						if (result.error.code === 'ETIMEDOUT') {
-							errString = 'Unable to reach device. Timed out.';
-						}
-						else if (result.error.code === 'ECONNREFUSED') {
-							errString = 'Connection refused. Is this the right IP address?';
-						}
-						else {
-							errString = result.error.code.toString();
-						}
-						self.log('error', 'Error from Camera: ' + errString);	
-					}
-				}
-				catch(error) {
-					self.log('error', 'Camera gave an error: ' + error);
-				}
-			}
-		)
-	}
+	let self = this
+	if (str === undefined) return Promise.reject(new Error('No camera command was supplied'))
+	if (!self.camera) return Promise.reject(new Error('Camera client is not initialized'))
+
+	if (self.config.debug === true) self.log('debug', 'Send CMD: ' + String(str))
+	return self.camera.command(str).catch(function (error) {
+		self.status(self.STATUS_ERROR, error.message)
+		self.log('error', 'Camera command failed: ' + error.message)
+		throw error
+	})
+}
+
+instance.prototype.setRecordingState = function (recordingState) {
+	let self = this
+	if (self.data.recordingState === recordingState) return
+	self.data.recordingState = recordingState
+	self.checkVariables()
+	self.checkFeedbacks('recordingState')
 }
 
 instance.prototype.actions = function (system) {

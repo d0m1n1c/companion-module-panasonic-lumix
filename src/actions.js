@@ -11,8 +11,9 @@ module.exports = {
 			label: 'Video Record Start',
 			callback: function (action, bank) {
 				cmd = 'mode=camcmd&value=video_recstart'
-				self.sendCommand(cmd);
-				self.data.recordingState = true;
+				return self.sendCommand(cmd).then(function () {
+					self.setRecordingState(true)
+				})
 			}
 		}
 
@@ -20,8 +21,9 @@ module.exports = {
 			label: 'Video Record Stop',
 			callback: function (action, bank) {
 				cmd = 'mode=camcmd&value=video_recstop'
-				self.sendCommand(cmd);
-				self.data.recordingState = false;
+				return self.sendCommand(cmd).then(function () {
+					self.setRecordingState(false)
+				})
 			}
 		}
 
