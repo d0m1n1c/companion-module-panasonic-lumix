@@ -34,7 +34,7 @@ Recording feedback changes after the camera accepts a recording action, not from
 
 ## Exposure and Image Settings (Experimental)
 
-Actions are available for ISO, aperture, shutter speed, exposure compensation, focus mode, metering, focus peaking, filter, colour mode/photo style, and video quality. Their request names follow `njfdev/liblumix`; they have not yet been verified on Dominic's camera. Lens, shooting mode and recording state may restrict availability. No photography, media-download, playback-mode or streaming actions are included.
+Actions are available for ISO, aperture, shutter speed, exposure compensation, focus mode, metering, focus peaking, filter, colour mode/photo style, and video quality. Their request names follow `njfdev/liblumix`. ISO reads and controls have been exercised on the development camera; the remaining setting controls still need hardware verification. Lens, shooting mode and recording state may restrict availability. No photography, media-download, playback-mode or streaming actions are included.
 
 Available settings are downloaded once in the background after each successful connection, populating setting-action dropdowns when the complete menu arrives. Heartbeats and controls continue independently. Menu downloads (`allmenu` and `curmenu`) allow up to 60 seconds; other information requests retain 15 seconds. Repeated requests for the same information on the same client share its pending download rather than sending duplicates. An ordinary information timeout does not mark the connection disconnected or retry pairing; the `err_critical` recovery and `err_busy` safety stop still apply. A failed initial download is not automatically retried: use **Read Camera Information / Available Settings**, selecting **Available settings**, to retry or refresh it manually. Reopen the action editor after reading the menu. A missing choice does not prove a setting is unsupported: some menus use dynamic ranges or extra value parameters, which this version deliberately omits. Custom values must be the exact camera protocol token, not a guessed display value. In particular, aperture and shutter speed can use encoded fractions such as `1366/256` and `2560/256`; these are not ordinary f-numbers or exposure-time fractions. Do not assume an example is supported by your camera.
 
@@ -58,7 +58,12 @@ New boolean feedbacks include low battery (camera level or reported percentage),
 
 - Recording State
 - Camera Model
+- Current settings (`setting_*`), updated by reads and acknowledged writes
+- Last information type and XML (up to 4096 characters)
+- State telemetry and last state reply time (unavailable with ISO-only polling)
 
 ## Feedbacks
 
 - Recording State
+- Setting Value
+- Battery, mode, temperature, card status and Recent State Reply (unavailable with ISO-only polling)
