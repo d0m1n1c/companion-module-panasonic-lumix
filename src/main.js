@@ -1,4 +1,4 @@
-const { InstanceBase, InstanceStatus, Regex, runEntrypoint } = require('@companion-module/base')
+const { InstanceBase, InstanceStatus, Regex } = require('@companion-module/base')
 const { LumixCameraClient, parseRecordingState } = require('./camera-client')
 const UpdateActions = require('./actions')
 const UpdateFeedbacks = require('./feedbacks')
@@ -183,4 +183,5 @@ class LumixInstance extends InstanceBase {
 	}
 }
 
-runEntrypoint(LumixInstance, UpgradeScripts)
+module.exports = LumixInstance
+module.exports.UpgradeScripts = UpgradeScripts
