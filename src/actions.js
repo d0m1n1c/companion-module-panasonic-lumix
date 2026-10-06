@@ -4,6 +4,7 @@ module.exports = function UpdateActions(self) {
 			name: 'Video Record Start',
 			options: [],
 			callback: async function () {
+				await self.sendCommand('mode=camcmd&value=recmode')
 				await self.sendCommand('mode=camcmd&value=video_recstart')
 				self.setRecordingState(true)
 			},

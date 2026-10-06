@@ -37,13 +37,14 @@ class LumixCameraClient {
 		options = options || {}
 		this.host = options.host || ''
 		this.controllerName = options.controllerName || 'Bitfocus Companion'
-		this.timeout = options.timeout || 5000
+		this.timeout = options.timeout || 3000
 		this.accessAttempts = options.accessAttempts || 20
 		this.accessRetryDelay = options.accessRetryDelay || 500
 		this.log = options.log || function () {}
 		this.sessionId = ''
 		this.deviceInfo = null
 		this._connecting = null
+		this._commandChain = Promise.resolve()
 	}
 
 	setHost(host) {
@@ -174,7 +175,17 @@ class LumixCameraClient {
 		}
 	}
 
-	async command(query, retryAccess) {
+	command(query, retryAccess) {
+		const self = this
+		const operation = function () {
+			return self._command(query, retryAccess)
+		}
+		const result = this._commandChain.then(operation, operation)
+		this._commandChain = result.catch(function () {})
+		return result
+	}
+
+	async _command(query, retryAccess) {
 		if (retryAccess === undefined) retryAccess = true
 		if (!this.sessionId) await this.connect()
 
@@ -185,7 +196,7 @@ class LumixCameraClient {
 		if (retryAccess && (result === 'err_reject' || result === 'err_session')) {
 			this.sessionId = ''
 			await this.connect()
-			return this.command(query, false)
+			return this._command(query, false)
 		}
 
 		if (result && result !== 'ok') throw new Error('Camera returned ' + result)

@@ -30,7 +30,11 @@ test('record actions use their instance and only update state after command succ
 	await definitions.recordingStart.callback()
 	await definitions.recordingStop.callback()
 
-	assert.deepEqual(commands, ['mode=camcmd&value=video_recstart', 'mode=camcmd&value=video_recstop'])
+	assert.deepEqual(commands, [
+		'mode=camcmd&value=recmode',
+		'mode=camcmd&value=video_recstart',
+		'mode=camcmd&value=video_recstop',
+	])
 	assert.deepEqual(states, [true, false])
 })
 
