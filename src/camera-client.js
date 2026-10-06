@@ -212,7 +212,7 @@ class LumixCameraClient {
 	}
 
 	heartbeat() {
-		return this.command('mode=getsetting&type=device_name', true, this.stateTimeout)
+		return this.command('mode=getsetting&type=pa', true, this.stateTimeout)
 	}
 
 	disconnect() {
