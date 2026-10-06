@@ -1,56 +1,30 @@
-module.exports = {
-	// ##########################
-	// #### Define Feedbacks ####
-	// ##########################
-	setFeedbacks: function (i) {
-		let self = i
-		let feedbacks = {}
-		
-		const foregroundColor = self.rgb(255, 255, 255) // White
-		const backgroundColorRed = self.rgb(255, 0, 0) // Red
-		const backgroundColorGreen = self.rgb(0, 255, 0) // Green
-		const backgroundColorOrange = self.rgb(255, 102, 0) // Orange
+const { combineRgb } = require('@companion-module/base')
 
-		feedbacks.recordingState = {
+module.exports = function UpdateFeedbacks(self) {
+	self.setFeedbackDefinitions({
+		recordingState: {
 			type: 'boolean',
-			label: 'Recording State',
-			description: 'Indicate if Camera is recording',
-			style: {
-				color: foregroundColor,
-				bgcolor: backgroundColorRed,
+			name: 'Recording State',
+			description: 'Indicate whether the camera is recording or stopped',
+			defaultStyle: {
+				color: combineRgb(255, 255, 255),
+				bgcolor: combineRgb(255, 0, 0),
 			},
 			options: [
 				{
 					type: 'dropdown',
-					label: 'Indicate in X State',
-					id: 'option',
-					default: '1',
+					label: 'State',
+					id: 'state',
+					default: 'recording',
 					choices: [
-						{ id: '0', label: 'Stopped' },
-						{ id: '1', label: 'Recording' },
+						{ id: 'stopped', label: 'Stopped' },
+						{ id: 'recording', label: 'Recording' },
 					],
 				},
 			],
-			callback: function (feedback, bank) {
-				var opt = feedback.options
-				switch (opt.option) {
-					case '0':
-						if (self.data.recordingState === false) {
-							return true
-						}
-						break
-					case '1':
-						if (self.data.recordingState === true) {
-							return true
-						}
-						break
-					default:
-						break
-				}
-				return false
-			}
-		}
-
-		return feedbacks
-	}
+			callback: function (feedback) {
+				return feedback.options.state === 'recording' ? self.data.recordingState : !self.data.recordingState
+			},
+		},
+	})
 }

@@ -7,7 +7,10 @@ function delay(ms) {
 }
 
 function tagValue(xml, tag) {
-	const expression = new RegExp('<(?:[A-Za-z0-9_-]+:)?' + tag + '(?:\\s[^>]*)?>([^<]*)</(?:[A-Za-z0-9_-]+:)?' + tag + '>', 'i')
+	const expression = new RegExp(
+		'<(?:[A-Za-z0-9_-]+:)?' + tag + '(?:\\s[^>]*)?>([^<]*)</(?:[A-Za-z0-9_-]+:)?' + tag + '>',
+		'i',
+	)
 	const match = expression.exec(xml || '')
 	return match ? match[1].trim() : ''
 }
@@ -76,7 +79,7 @@ class LumixCameraClient {
 					response.on('end', function () {
 						resolve({ statusCode: response.statusCode, body: body, headers: response.headers })
 					})
-				}
+				},
 			)
 
 			request.on('timeout', function () {
@@ -130,12 +133,17 @@ class LumixCameraClient {
 
 			for (let attempt = 0; attempt < self.accessAttempts; attempt++) {
 				const access = await self._camRequest(
-					'mode=accctrl&type=req_acc_e&value=' + encodeURIComponent(encodedUdn) + '&value2=' + encodeURIComponent(encodedName),
-					false
+					'mode=accctrl&type=req_acc_e&value=' +
+						encodeURIComponent(encodedUdn) +
+						'&value2=' +
+						encodeURIComponent(encodedName),
+					false,
 				)
 				self._assertHttpOk(access, 'Camera access confirmation')
 				lastResponse = access.body.trim()
-				const values = lastResponse.split(',').map(function (value) { return value.trim() })
+				const values = lastResponse.split(',').map(function (value) {
+					return value.trim()
+				})
 				if (values[0].toLowerCase() === 'ok') {
 					self.sessionId = values[values.length - 1]
 					break
@@ -149,7 +157,7 @@ class LumixCameraClient {
 
 			const setName = await self._camRequest(
 				'mode=setsetting&type=device_name&value=' + encodeURIComponent(self.controllerName),
-				true
+				true,
 			)
 			self._assertHttpOk(setName, 'Controller name confirmation')
 			if (cameraResult(setName.body) !== 'ok') {

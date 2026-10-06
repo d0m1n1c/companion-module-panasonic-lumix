@@ -1,32 +1,20 @@
-module.exports = {
-	// ##########################
-	// #### Instance Actions ####
-	// ##########################
-	setActions: function (i) {
-		let self = i
-		let actions = {}
-		let cmd = ''
-
-		actions.recordingStart = {
-			label: 'Video Record Start',
-			callback: function (action, bank) {
-				cmd = 'mode=camcmd&value=video_recstart'
-				return self.sendCommand(cmd).then(function () {
-					self.setRecordingState(true)
-				})
-			}
-		}
-
-		actions.recordingStop = {
-			label: 'Video Record Stop',
-			callback: function (action, bank) {
-				cmd = 'mode=camcmd&value=video_recstop'
-				return self.sendCommand(cmd).then(function () {
-					self.setRecordingState(false)
-				})
-			}
-		}
-
-		return actions
-	}
+module.exports = function UpdateActions(self) {
+	self.setActionDefinitions({
+		recordingStart: {
+			name: 'Video Record Start',
+			options: [],
+			callback: async function () {
+				await self.sendCommand('mode=camcmd&value=video_recstart')
+				self.setRecordingState(true)
+			},
+		},
+		recordingStop: {
+			name: 'Video Record Stop',
+			options: [],
+			callback: async function () {
+				await self.sendCommand('mode=camcmd&value=video_recstop')
+				self.setRecordingState(false)
+			},
+		},
+	})
 }

@@ -2,7 +2,7 @@
 
 ## Current milestone
 
-This branch keeps the original Companion 1.x module shape and makes the existing Video Record Start/Stop actions usable with the S5II/S5IIX access-controlled HTTP API.
+This branch uses the current Companion developer-module layout and makes the existing Video Record Start/Stop actions usable with the S5II/S5IIX access-controlled HTTP API.
 
 Connection flow:
 
