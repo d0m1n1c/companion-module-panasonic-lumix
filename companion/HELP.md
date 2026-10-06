@@ -16,7 +16,7 @@ The module reads the camera identity from port 60606, requests access, stores th
 - Video Record Start
 - Video Record Stop
 
-Recording feedback changes only after the camera accepts an action. A state request is sent every second by default to keep the S5II/S5IIX session alive and consume recording state when the camera exposes it.
+Recording feedback changes after the camera accepts an action. A lightweight setting request is sent every second by default to keep the S5II/S5IIX session alive without blocking controls on cameras where `getstate` does not return reliably.
 
 ## Variables
 

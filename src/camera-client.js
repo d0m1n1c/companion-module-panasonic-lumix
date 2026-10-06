@@ -211,6 +211,10 @@ class LumixCameraClient {
 		return this.command('mode=getstate', true, this.stateTimeout)
 	}
 
+	heartbeat() {
+		return this.command('mode=getsetting&type=device_name', true, this.stateTimeout)
+	}
+
 	disconnect() {
 		this.sessionId = ''
 		this.deviceInfo = null

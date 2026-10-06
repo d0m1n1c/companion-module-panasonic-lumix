@@ -75,7 +75,7 @@ class LumixInstance extends InstanceBase {
 			{
 				type: 'number',
 				id: 'interval',
-				label: 'State Poll Interval (ms)',
+				label: 'Heartbeat Interval (ms)',
 				width: 6,
 				default: 1000,
 				min: 0,
@@ -162,7 +162,7 @@ class LumixInstance extends InstanceBase {
 		this.pollInFlight = true
 		const camera = this.camera
 		try {
-			const stateXml = await camera.getState()
+			const stateXml = await camera.heartbeat()
 			if (camera !== this.camera) return
 			const recordingState = parseRecordingState(stateXml)
 			if (recordingState !== null) this.setRecordingState(recordingState)

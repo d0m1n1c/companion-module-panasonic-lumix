@@ -68,6 +68,11 @@ test('connects, sends the session header, and retries an expired session', async
 
 	await client.connect()
 	assert.equal(client.sessionId, 'session-1')
+	await client.heartbeat()
+	const heartbeatRequest = requests.find(function (item) {
+		return item.url.indexOf('mode=getsetting&type=device_name') !== -1
+	})
+	assert.equal(heartbeatRequest.session, 'session-1')
 	await client.command('mode=camcmd&value=video_recstart')
 	assert.equal(client.sessionId, 'session-2')
 
