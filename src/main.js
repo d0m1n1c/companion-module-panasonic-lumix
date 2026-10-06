@@ -12,6 +12,7 @@ class LumixInstance extends InstanceBase {
 		this.pollTimer = null
 		this.reconnectTimer = null
 		this.pollInFlight = false
+		this.consecutivePollErrors = 0
 		this.data = {
 			recordingState: false,
 			cameraInfo: null,
@@ -164,11 +165,17 @@ class LumixInstance extends InstanceBase {
 			if (camera !== this.camera) return
 			const recordingState = parseRecordingState(stateXml)
 			if (recordingState !== null) this.setRecordingState(recordingState)
+			this.consecutivePollErrors = 0
 			this.updateStatus(InstanceStatus.Ok)
 		} catch (error) {
 			if (camera === this.camera) {
-				this.updateStatus(InstanceStatus.ConnectionFailure, error.message)
-				this.log('error', 'Camera state poll failed: ' + error.message)
+				this.consecutivePollErrors += 1
+				this.updateStatus(InstanceStatus.Ok, 'Connected; state polling unavailable')
+				if (this.consecutivePollErrors === 1) {
+					this.log('warn', 'Camera state polling unavailable; control commands will continue: ' + error.message)
+				} else if (this.config.debug) {
+					this.log('debug', 'Camera state poll failed: ' + error.message)
+				}
 			}
 		} finally {
 			this.pollInFlight = false
@@ -179,7 +186,10 @@ class LumixInstance extends InstanceBase {
 		if (!this.camera) throw new Error('Camera client is not initialized')
 		if (this.config.debug) this.log('debug', 'Send CMD: ' + command)
 		try {
-			return await this.camera.command(command)
+			const response = await this.camera.command(command)
+			this.consecutivePollErrors = 0
+			this.updateStatus(InstanceStatus.Ok)
+			return response
 		} catch (error) {
 			this.updateStatus(InstanceStatus.ConnectionFailure, error.message)
 			this.log('error', 'Camera command failed: ' + error.message)

@@ -38,6 +38,7 @@ class LumixCameraClient {
 		this.host = options.host || ''
 		this.controllerName = options.controllerName || 'Bitfocus Companion'
 		this.timeout = options.timeout || 3000
+		this.stateTimeout = options.stateTimeout || 750
 		this.accessAttempts = options.accessAttempts || 20
 		this.accessRetryDelay = options.accessRetryDelay || 500
 		this.log = options.log || function () {}
@@ -55,7 +56,7 @@ class LumixCameraClient {
 		}
 	}
 
-	_request(port, path, headers) {
+	_request(port, path, headers, timeout) {
 		const self = this
 		return new Promise(function (resolve, reject) {
 			if (!self.host) {
@@ -69,7 +70,7 @@ class LumixCameraClient {
 					port: port,
 					path: path,
 					headers: headers || {},
-					timeout: self.timeout,
+					timeout: timeout || self.timeout,
 				},
 				function (response) {
 					let body = ''
@@ -96,10 +97,10 @@ class LumixCameraClient {
 		}
 	}
 
-	_camRequest(query, includeSession) {
+	_camRequest(query, includeSession, timeout) {
 		const headers = {}
 		if (includeSession && this.sessionId) headers['X-SESSION_ID'] = this.sessionId
-		return this._request(80, '/cam.cgi?' + query, headers)
+		return this._request(80, '/cam.cgi?' + query, headers, timeout)
 	}
 
 	async connect() {
@@ -175,28 +176,28 @@ class LumixCameraClient {
 		}
 	}
 
-	command(query, retryAccess) {
+	command(query, retryAccess, timeout) {
 		const self = this
 		const operation = function () {
-			return self._command(query, retryAccess)
+			return self._command(query, retryAccess, timeout)
 		}
 		const result = this._commandChain.then(operation, operation)
 		this._commandChain = result.catch(function () {})
 		return result
 	}
 
-	async _command(query, retryAccess) {
+	async _command(query, retryAccess, timeout) {
 		if (retryAccess === undefined) retryAccess = true
 		if (!this.sessionId) await this.connect()
 
-		const response = await this._camRequest(query, true)
+		const response = await this._camRequest(query, true, timeout)
 		this._assertHttpOk(response, 'Camera command')
 		const result = cameraResult(response.body)
 
 		if (retryAccess && (result === 'err_reject' || result === 'err_session')) {
 			this.sessionId = ''
 			await this.connect()
-			return this._command(query, false)
+			return this._command(query, false, timeout)
 		}
 
 		if (result && result !== 'ok') throw new Error('Camera returned ' + result)
@@ -205,7 +206,7 @@ class LumixCameraClient {
 	}
 
 	getState() {
-		return this.command('mode=getstate')
+		return this.command('mode=getstate', true, this.stateTimeout)
 	}
 
 	disconnect() {
