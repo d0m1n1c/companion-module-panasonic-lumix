@@ -178,17 +178,17 @@ class LumixCameraClient {
 		}
 	}
 
-	command(query, retryAccess, timeout) {
+	command(query, retryAccess, timeout, acceptedResults) {
 		const self = this
 		const operation = function () {
-			return self._command(query, retryAccess, timeout)
+			return self._command(query, retryAccess, timeout, acceptedResults)
 		}
 		const result = this._commandChain.then(operation, operation)
 		this._commandChain = result.catch(function () {})
 		return result
 	}
 
-	async _command(query, retryAccess, timeout) {
+	async _command(query, retryAccess, timeout, acceptedResults) {
 		if (retryAccess === undefined) retryAccess = true
 		if (!this.sessionId) await this.connect()
 
@@ -199,10 +199,12 @@ class LumixCameraClient {
 		if (retryAccess && (result === 'err_reject' || result === 'err_session')) {
 			this.sessionId = ''
 			await this.connect()
-			return this._command(query, false, timeout)
+			return this._command(query, false, timeout, acceptedResults)
 		}
 
-		if (result && result !== 'ok') throw new Error('Camera returned ' + result)
+		if (result && result !== 'ok' && (!acceptedResults || acceptedResults.indexOf(result) === -1)) {
+			throw new Error('Camera returned ' + result)
+		}
 		if (!result) throw new Error('Camera returned an invalid response')
 		return response.body
 	}
@@ -212,7 +214,7 @@ class LumixCameraClient {
 	}
 
 	heartbeat() {
-		return this.command('mode=getsetting&type=pa', true, this.stateTimeout)
+		return this.command('mode=getsetting&type=pa', true, this.stateTimeout, ['err_no_data', 'err_non_support'])
 	}
 
 	disconnect() {

@@ -59,6 +59,8 @@ test('connects, sends the session header, and retries an expired session', async
 		}
 		if (path.indexOf('type=device_name') !== -1)
 			return { statusCode: 200, body: '<camrply><result>ok</result></camrply>' }
+		if (path.indexOf('mode=getsetting&type=pa') !== -1)
+			return { statusCode: 200, body: '<camrply><result>err_no_data</result></camrply>' }
 		if (path.indexOf('video_recstart') !== -1 && rejectCommandOnce) {
 			rejectCommandOnce = false
 			return { statusCode: 200, body: '<camrply><result>err_session</result></camrply>' }
